@@ -55,6 +55,13 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
         } else {
             toast.success(`Status updated to ${STATUS_LABELS[newStatus as keyof typeof STATUS_LABELS] || newStatus}`);
             fetchData();
+
+            // Auto-generate and download offer letter when student is admitted
+            if (newStatus === "admitted") {
+                toast.info("Generating offer letter...");
+                // Small delay to let the UI update first
+                setTimeout(() => handleGenerateOfferLetter(), 500);
+            }
         }
     };
 
