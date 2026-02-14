@@ -47,17 +47,23 @@ export async function middleware(request: NextRequest) {
 
     // If logged in and trying to access login/signup → redirect to dashboard
     if (user && (pathname === "/login" || pathname === "/signup")) {
-        // Fetch profile to determine role
-        const { data: profile } = await supabase
-            .from("profiles")
-            .select("role")
-            .eq("id", user.id)
-            .single();
+        try {
+            const { data: profile } = await supabase
+                .from("profiles")
+                .select("role")
+                .eq("id", user.id)
+                .single();
 
-        const role = profile?.role || "student";
-        const url = request.nextUrl.clone();
-        url.pathname = role === "student" ? "/student" : "/admin";
-        return NextResponse.redirect(url);
+            const role = profile?.role || "student";
+            const url = request.nextUrl.clone();
+            url.pathname = role === "student" ? "/student" : "/admin";
+            return NextResponse.redirect(url);
+        } catch {
+            // Profile doesn't exist yet — redirect to student dashboard
+            const url = request.nextUrl.clone();
+            url.pathname = "/student";
+            return NextResponse.redirect(url);
+        }
     }
 
     // Role-based route protection
