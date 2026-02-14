@@ -35,3 +35,6 @@ tmp/
 
 # Vercel
 .vercel
+
+# Embedded repos
+Unigate_f1/
