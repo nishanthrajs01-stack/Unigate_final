@@ -66,6 +66,7 @@ export default function SignupPage() {
         outline: "none",
         transition: "border-color 0.2s",
         background: "#f8fafc",
+        color: "#0f172a",
     };
 
     return (

@@ -337,6 +337,7 @@ export default function LoginPage() {
                                         outline: "none",
                                         transition: "border-color 0.2s",
                                         background: "#f8fafc",
+                                        color: "#0f172a",
                                     }}
                                     onFocus={(e) => (e.target.style.borderColor = "#c29d59")}
                                     onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
@@ -372,6 +373,7 @@ export default function LoginPage() {
                                             outline: "none",
                                             transition: "border-color 0.2s",
                                             background: "#f8fafc",
+                                            color: "#0f172a",
                                         }}
                                         onFocus={(e) => (e.target.style.borderColor = "#c29d59")}
                                         onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
