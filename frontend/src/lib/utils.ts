@@ -49,4 +49,6 @@ export function generateDocumentName(
     return `${sanitized}_${docType}_${date}`;
 }
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Strip trailing /api or / from the env var to prevent double-path issues
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://magnificent-pasca-7a4b38.netlify.app';
+export const API_URL = rawApiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
