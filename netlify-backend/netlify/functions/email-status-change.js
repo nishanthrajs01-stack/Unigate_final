@@ -1,6 +1,6 @@
 // Status Change Email — Netlify Function
 // Equivalent to FastAPI POST /api/email/status-change
-const { sendEmail, getStatusChangeEmail } = require("./utils/email-service");
+const { sendEmail, getStatusChangeEmail, getAdmissionEmail } = require("./utils/email-service");
 
 function corsHeaders() {
     return {
@@ -24,7 +24,7 @@ exports.handler = async (event) => {
     }
 
     try {
-        const { to_email, student_name, new_status, notes = "" } = JSON.parse(event.body || "{}");
+        const { to_email, student_name, new_status, notes = "", college_name, program } = JSON.parse(event.body || "{}");
 
         if (!to_email || !student_name || !new_status) {
             return {
@@ -34,7 +34,14 @@ exports.handler = async (event) => {
             };
         }
 
-        const { subject, html } = getStatusChangeEmail(student_name, new_status, notes);
+        let emailData;
+        if (new_status === "admitted" && college_name && program) {
+            emailData = getAdmissionEmail(student_name, college_name, program);
+        } else {
+            emailData = getStatusChangeEmail(student_name, new_status, notes);
+        }
+
+        const { subject, html } = emailData;
         const result = await sendEmail(to_email, subject, html);
 
         if (!result.success) {

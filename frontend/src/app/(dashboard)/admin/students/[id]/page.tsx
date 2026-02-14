@@ -62,6 +62,29 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
                 // Small delay to let the UI update first
                 setTimeout(() => handleGenerateOfferLetter(), 500);
             }
+
+            // Send email notification to student
+            if (application.profile?.email) {
+                try {
+                    // Don't await strictly to keep UI responsive, but nice to know if it fails
+                    fetch(`${API_URL}/api/email/status-change`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            to_email: application.profile.email,
+                            student_name: application.profile.full_name,
+                            new_status: newStatus,
+                            college_name: application.college?.name,
+                            program: application.program,
+                        }),
+                    }).then(res => {
+                        if (res.ok) toast.success("Email notification sent to student");
+                        else console.error("Email API error");
+                    });
+                } catch (err) {
+                    console.error("Failed to send email:", err);
+                }
+            }
         }
     };
 
