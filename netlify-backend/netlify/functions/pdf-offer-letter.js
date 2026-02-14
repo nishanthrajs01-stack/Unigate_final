@@ -1,23 +1,5 @@
 // PDF Offer Letter Generation — Netlify Function
 // Equivalent to FastAPI POST /api/pdf/offer-letter
-const path = require("path");
-const fs = require("fs");
-
-// Fix PDFKit font loading in serverless — monkey-patch font data path
-const PDFKIT_DIR = path.dirname(require.resolve("pdfkit/package.json"));
-const AFM_DATA_DIR = path.join(PDFKIT_DIR, "js", "data");
-const originalReadFileSync = fs.readFileSync;
-fs.readFileSync = function (filePath, ...args) {
-    if (typeof filePath === "string" && filePath.endsWith(".afm")) {
-        const fontFile = path.basename(filePath);
-        const correctedPath = path.join(AFM_DATA_DIR, fontFile);
-        if (fs.existsSync(correctedPath)) {
-            return originalReadFileSync.call(this, correctedPath, ...args);
-        }
-    }
-    return originalReadFileSync.call(this, filePath, ...args);
-};
-
 const PDFDocument = require("pdfkit");
 const QRCode = require("qrcode");
 const { v4: uuidv4 } = require("uuid");
