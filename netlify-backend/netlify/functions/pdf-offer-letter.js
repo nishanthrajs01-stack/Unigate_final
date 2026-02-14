@@ -1,11 +1,50 @@
-// PDF Offer Letter Generation — Netlify Function
-// Equivalent to FastAPI POST /api/pdf/offer-letter
+// PDF Offer Letter Generation — Netlify Function (Premium Design)
 const PDFDocument = require("pdfkit");
 const QRCode = require("qrcode");
 const { v4: uuidv4 } = require("uuid");
+
+// ─── Color Palette ───
+const COLORS = {
+    navy: "#0F172A",
+    navyLight: "#1E293B",
+    gold: "#C29D59",
+    goldLight: "#D4B87A",
+    goldDark: "#A68542",
+    white: "#FFFFFF",
+    offWhite: "#FAFAF9",
+    cream: "#FDF8F0",
+    slate50: "#F8FAFC",
+    slate100: "#F1F5F9",
+    slate200: "#E2E8F0",
+    slate400: "#94A3B8",
+    slate500: "#64748B",
+    slate700: "#334155",
+    text: "#1E293B",
+    success: "#059669",
+};
+
+const PW = 595.28; // A4 width
+const PH = 842.89; // A4 height
+
 /**
- * Generate a branded Offer Letter PDF with watermark and QR code.
- * Returns a Buffer containing the PDF.
+ * Draw a rounded rectangle (manually with bezier curves)
+ */
+function roundedRect(doc, x, y, w, h, r) {
+    doc.moveTo(x + r, y)
+        .lineTo(x + w - r, y)
+        .quadraticCurveTo(x + w, y, x + w, y + r)
+        .lineTo(x + w, y + h - r)
+        .quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+        .lineTo(x + r, y + h)
+        .quadraticCurveTo(x, y + h, x, y + h - r)
+        .lineTo(x, y + r)
+        .quadraticCurveTo(x, y, x + r, y)
+        .closePath();
+}
+
+/**
+ * Generate a premium branded Offer Letter PDF.
+ * Returns { pdf: Buffer, letterId: string }
  */
 async function generateOfferLetterPDF({
     studentName,
@@ -17,139 +56,279 @@ async function generateOfferLetterPDF({
     appUrl = "http://localhost:3000",
 }) {
     const letterId = uuidv4();
+    const refId = letterId.slice(0, 8).toUpperCase();
     const date = issueDate || new Date().toLocaleDateString("en-US", {
         year: "numeric", month: "long", day: "numeric",
     });
 
-    // Generate QR code as data URL
+    // Generate QR code
     const verifyUrl = `${appUrl}/verify/${letterId}`;
     const qrDataUrl = await QRCode.toDataURL(verifyUrl, {
-        width: 120,
+        width: 150,
         margin: 1,
-        color: { dark: "#0F172A", light: "#FFFFFF" },
+        color: { dark: COLORS.navy, light: COLORS.white },
+        errorCorrectionLevel: "H",
     });
     const qrBuffer = Buffer.from(qrDataUrl.split(",")[1], "base64");
 
     return new Promise((resolve, reject) => {
-        const doc = new PDFDocument({ size: "A4", margin: 50, bufferPages: true });
+        const doc = new PDFDocument({
+            size: "A4", margin: 0, bufferPages: true,
+            info: {
+                Title: `Offer Letter — ${studentName}`,
+                Author: "Unigate Consultancy",
+                Subject: `Admission Offer for ${program} at ${collegeName}`,
+                Creator: "Unigate Consultancy Management System",
+            },
+        });
         const chunks = [];
-
         doc.on("data", (chunk) => chunks.push(chunk));
         doc.on("end", () => resolve({ pdf: Buffer.concat(chunks), letterId }));
         doc.on("error", reject);
 
-        // ─── Header ───
-        doc.rect(0, 0, 595, 55).fill("#0F172A");
-        doc.rect(0, 55, 595, 3).fill("#C29D59");
+        const M = 50; // margin
+        const CW = PW - 2 * M; // content width
 
-        doc.font("Helvetica-Bold").fontSize(22).fillColor("#FFFFFF")
-            .text("UNIGATE CONSULTANCY", 50, 15, { continued: false });
-        doc.font("Helvetica").fontSize(9).fillColor("#C29D59")
-            .text("International Education & Admissions Partner", 50, 38);
+        // ════════════════════════════════════════════════════
+        // ─── DECORATIVE PAGE BORDER ───
+        // ════════════════════════════════════════════════════
+        // Outer gold border
+        doc.rect(15, 15, PW - 30, PH - 30).lineWidth(1.5).strokeColor(COLORS.gold).stroke();
+        // Inner navy thin border
+        doc.rect(20, 20, PW - 40, PH - 40).lineWidth(0.5).strokeColor(COLORS.navyLight).stroke();
+        // Corner accents (gold diamond shapes at corners)
+        const cornerSize = 8;
+        [[22, 22], [PW - 22, 22], [22, PH - 22], [PW - 22, PH - 22]].forEach(([cx, cy]) => {
+            doc.save();
+            doc.translate(cx, cy).rotate(45);
+            doc.rect(-cornerSize / 2, -cornerSize / 2, cornerSize, cornerSize).fill(COLORS.gold);
+            doc.restore();
+        });
 
-        // ─── Watermark ───
+        // ════════════════════════════════════════════════════
+        // ─── HEADER BAND ───
+        // ════════════════════════════════════════════════════
+        doc.rect(25, 25, PW - 50, 80).fill(COLORS.navy);
+        // Gold accent line below header
+        doc.rect(25, 105, PW - 50, 3).fill(COLORS.gold);
+
+        // Logo text
+        doc.font("Helvetica-Bold").fontSize(26).fillColor(COLORS.white)
+            .text("UNIGATE", M + 5, 42, { continued: true })
+            .fillColor(COLORS.gold).text(" CONSULTANCY");
+
+        // Tagline
+        doc.font("Helvetica").fontSize(8.5).fillColor(COLORS.goldLight)
+            .text("INTERNATIONAL EDUCATION & ADMISSIONS PARTNER", M + 5, 72, { characterSpacing: 2.5 });
+
+        // Document reference on the right
+        doc.font("Helvetica").fontSize(7.5).fillColor(COLORS.slate400)
+            .text(`Ref: UGC/${refId}`, PW - M - 120, 45, { width: 115, align: "right" });
+        doc.font("Helvetica").fontSize(7.5).fillColor(COLORS.slate400)
+            .text(date, PW - M - 120, 57, { width: 115, align: "right" });
+
+        // ════════════════════════════════════════════════════
+        // ─── DIAGONAL WATERMARK ───
+        // ════════════════════════════════════════════════════
         doc.save();
-        doc.fontSize(70).fillColor("#F0F0F5").opacity(0.15);
-        doc.translate(297, 420).rotate(-45);
-        doc.text("UNIGATE", -200, -30);
+        doc.fontSize(90).fillColor(COLORS.slate200).opacity(0.08);
+        doc.translate(PW / 2, PH / 2).rotate(-40);
+        doc.text("UNIGATE", -220, -40);
         doc.restore();
         doc.opacity(1);
 
-        // ─── Date ───
-        doc.font("Helvetica").fontSize(10).fillColor("#64748B")
-            .text(`Date: ${date}`, 50, 80, { align: "right", width: 495 });
+        // ════════════════════════════════════════════════════
+        // ─── DOCUMENT TITLE ───
+        // ════════════════════════════════════════════════════
+        let y = 128;
+        doc.font("Helvetica-Bold").fontSize(19).fillColor(COLORS.navy)
+            .text("OFFICIAL OFFER OF ADMISSION", M, y, { align: "center", width: CW });
+        y = doc.y + 4;
+        // Gold underline accent (centered)
+        const underlineW = 180;
+        doc.rect((PW - underlineW) / 2, y, underlineW, 2).fill(COLORS.gold);
+        // Thin decorative lines on either side
+        doc.rect(M + 20, y + 0.5, (PW - underlineW) / 2 - M - 30, 0.5).fill(COLORS.slate200);
+        doc.rect((PW + underlineW) / 2 + 10, y + 0.5, (PW - underlineW) / 2 - M - 30, 0.5).fill(COLORS.slate200);
 
-        // ─── Title ───
-        doc.moveDown(1);
-        doc.font("Helvetica-Bold").fontSize(18).fillColor("#0F172A")
-            .text("OFFICIAL OFFER OF ADMISSION", { align: "center" });
-        const titleY = doc.y;
-        doc.rect(220, titleY + 5, 155, 2).fill("#C29D59");
+        // ════════════════════════════════════════════════════
+        // ─── STUDENT INFO CARD ───
+        // ════════════════════════════════════════════════════
+        y += 20;
+        const cardH = 90;
+        // Card background with subtle border
+        roundedRect(doc, M, y, CW, cardH, 8);
+        doc.fill(COLORS.cream);
+        roundedRect(doc, M, y, CW, cardH, 8);
+        doc.lineWidth(0.5).strokeColor(COLORS.goldLight).stroke();
+        // Gold left accent bar
+        doc.rect(M, y + 8, 4, cardH - 16).fill(COLORS.gold);
 
-        // ─── Student Info Box ───
-        doc.moveDown(2);
-        const boxY = doc.y;
-        doc.rect(50, boxY, 495, 80).fill("#F8FAFC");
+        const colLeft = M + 20;
+        const colRight = M + CW / 2 + 10;
+        const labelSpacing = 22;
 
-        doc.font("Helvetica").fontSize(10).fillColor("#64748B")
-            .text("Student Name:", 60, boxY + 10);
-        doc.font("Helvetica-Bold").fontSize(12).fillColor("#0F172A")
-            .text(studentName, 160, boxY + 9);
+        // Row 1
+        doc.font("Helvetica").fontSize(8.5).fillColor(COLORS.slate500)
+            .text("Student Name", colLeft, y + 14);
+        doc.font("Helvetica-Bold").fontSize(12).fillColor(COLORS.navy)
+            .text(studentName, colLeft, y + 26);
 
-        doc.font("Helvetica").fontSize(10).fillColor("#64748B")
-            .text("Institution:", 60, boxY + 32);
-        doc.font("Helvetica-Bold").fontSize(12).fillColor("#0F172A")
-            .text(collegeName, 160, boxY + 31);
+        doc.font("Helvetica").fontSize(8.5).fillColor(COLORS.slate500)
+            .text("Application Reference", colRight, y + 14);
+        doc.font("Helvetica-Bold").fontSize(12).fillColor(COLORS.navy)
+            .text(`UGC-${refId}`, colRight, y + 26);
 
-        doc.font("Helvetica").fontSize(10).fillColor("#64748B")
-            .text("Program:", 60, boxY + 54);
-        doc.font("Helvetica-Bold").fontSize(12).fillColor("#0F172A")
-            .text(`${program} — Intake ${intakeYear}`, 160, boxY + 53);
+        // Row 2
+        doc.font("Helvetica").fontSize(8.5).fillColor(COLORS.slate500)
+            .text("Institution", colLeft, y + 50);
+        doc.font("Helvetica-Bold").fontSize(11).fillColor(COLORS.navy)
+            .text(collegeName, colLeft, y + 62);
 
-        // ─── Body ───
-        doc.y = boxY + 95;
-        doc.font("Helvetica").fontSize(11).fillColor("#1E293B")
+        doc.font("Helvetica").fontSize(8.5).fillColor(COLORS.slate500)
+            .text("Program & Intake", colRight, y + 50);
+        doc.font("Helvetica-Bold").fontSize(11).fillColor(COLORS.navy)
+            .text(`${program} — ${intakeYear}`, colRight, y + 62);
+
+        // ════════════════════════════════════════════════════
+        // ─── LETTER BODY ───
+        // ════════════════════════════════════════════════════
+        y += cardH + 22;
+        doc.font("Helvetica").fontSize(10.5).fillColor(COLORS.text)
+            .text(`Dear ${studentName},`, M, y, { width: CW, lineGap: 3 });
+
+        y = doc.y + 10;
+        doc.font("Helvetica").fontSize(10.5).fillColor(COLORS.text)
             .text(
-                `Dear ${studentName},\n\nWe are pleased to inform you that your application for admission to ${collegeName} has been reviewed and accepted. This letter serves as your official Offer of Admission for the ${program} program for the ${intakeYear} academic intake.\n\nPlease find the key details of your admission below:`,
-                50, doc.y, { width: 495, lineGap: 4 }
+                `We are delighted to inform you that your application for admission to ${collegeName} has been carefully reviewed and accepted. On behalf of the Unigate Consultancy team and the admissions board, we extend our heartfelt congratulations on this outstanding achievement.`,
+                M, y, { width: CW, lineGap: 4 }
             );
 
-        // ─── Details Table ───
-        doc.moveDown(1);
+        y = doc.y + 8;
+        doc.font("Helvetica").fontSize(10.5).fillColor(COLORS.text)
+            .text(
+                `This letter serves as your Official Offer of Admission for the ${program} program for the ${intakeYear} academic year. We are confident that you will make a valuable contribution to the academic community.`,
+                M, y, { width: CW, lineGap: 4 }
+            );
+
+        // ════════════════════════════════════════════════════
+        // ─── ADMISSION DETAILS TABLE ───
+        // ════════════════════════════════════════════════════
+        y = doc.y + 18;
+        doc.font("Helvetica-Bold").fontSize(11).fillColor(COLORS.navy)
+            .text("ADMISSION DETAILS", M, y);
+        y = doc.y + 6;
+        doc.rect(M, y, CW, 1).fill(COLORS.gold);
+        y += 8;
+
         const tableData = [
             ["Program of Study", program],
-            ["Academic Year", String(intakeYear)],
-            ["Institution", collegeName],
-            ["Total Program Fees", `INR ${totalFees.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`],
-            ["Document Reference", letterId.slice(0, 8).toUpperCase()],
+            ["Academic Year", `${intakeYear} — ${intakeYear + 1}`],
+            ["Partner Institution", collegeName],
+            ["Total Program Fees", totalFees > 0 ? `₹ ${totalFees.toLocaleString("en-IN")}` : "As per institution"],
+            ["Document Reference", `UGC/${refId}`],
+            ["Date of Issue", date],
         ];
 
-        // Header row
-        const tableX = 50;
-        let tableY = doc.y;
-        doc.rect(tableX, tableY, 495, 25).fill("#0F172A");
-        doc.font("Helvetica-Bold").fontSize(10).fillColor("#FFFFFF");
-        doc.text("  Detail", tableX + 5, tableY + 7, { width: 240 });
-        doc.text("  Value", tableX + 250, tableY + 7, { width: 240 });
-        tableY += 25;
+        // Table header
+        roundedRect(doc, M, y, CW, 26, 4);
+        doc.fill(COLORS.navy);
+        doc.font("Helvetica-Bold").fontSize(9).fillColor(COLORS.white);
+        doc.text("DETAIL", M + 14, y + 8, { width: CW / 2 - 20 });
+        doc.text("INFORMATION", M + CW / 2, y + 8, { width: CW / 2 - 14 });
+        y += 26;
 
-        // Data rows
+        // Table rows
         tableData.forEach(([key, value], i) => {
-            const bg = i % 2 === 0 ? "#F8FAFC" : "#FFFFFF";
-            doc.rect(tableX, tableY, 495, 22).fill(bg);
-            doc.font("Helvetica").fontSize(10).fillColor("#64748B")
-                .text(`  ${key}`, tableX + 5, tableY + 5, { width: 240 });
-            doc.font("Helvetica-Bold").fontSize(10).fillColor("#0F172A")
-                .text(`  ${value}`, tableX + 250, tableY + 5, { width: 240 });
-            tableY += 22;
+            const rowH = 24;
+            const bg = i % 2 === 0 ? COLORS.slate50 : COLORS.white;
+            const isLast = i === tableData.length - 1;
+
+            if (isLast) {
+                // Bottom rounded corners for last row
+                doc.rect(M, y, CW, rowH).fill(bg);
+            } else {
+                doc.rect(M, y, CW, rowH).fill(bg);
+            }
+
+            // Left accent for fees row
+            if (key === "Total Program Fees") {
+                doc.rect(M, y, 3, rowH).fill(COLORS.gold);
+            }
+
+            doc.font("Helvetica").fontSize(9).fillColor(COLORS.slate500)
+                .text(key, M + 14, y + 7, { width: CW / 2 - 20 });
+            doc.font("Helvetica-Bold").fontSize(9.5).fillColor(COLORS.navy)
+                .text(value, M + CW / 2, y + 7, { width: CW / 2 - 14 });
+            y += rowH;
         });
 
-        // ─── Terms ───
-        doc.y = tableY + 15;
-        doc.font("Helvetica").fontSize(10).fillColor("#1E293B")
-            .text(
-                "Terms & Conditions:\n1. This offer is valid for 30 days from the date of issue.\n2. Admission is subject to verification of original academic documents.\n3. Fees are payable as per the institution's payment schedule.\n4. Unigate Consultancy acts as an authorized admission partner.",
-                50, doc.y, { width: 495, lineGap: 3 }
-            );
+        // Bottom border of table
+        doc.rect(M, y, CW, 1).fill(COLORS.slate200);
 
-        // ─── QR Code ───
-        doc.moveDown(1.5);
-        doc.font("Helvetica-Bold").fontSize(9).fillColor("#0F172A")
-            .text("Scan to verify this document:", 50, doc.y);
-        doc.image(qrBuffer, 460, doc.y - 15, { width: 70 });
+        // ════════════════════════════════════════════════════
+        // ─── TERMS & CONDITIONS ───
+        // ════════════════════════════════════════════════════
+        y += 16;
+        doc.font("Helvetica-Bold").fontSize(9).fillColor(COLORS.navy)
+            .text("TERMS & CONDITIONS", M, y);
+        y = doc.y + 4;
 
-        // ─── Signature ───
-        doc.moveDown(4);
-        doc.font("Helvetica-Bold").fontSize(11).fillColor("#0F172A")
-            .text("Authorized by Unigate Consultancy", 50);
-        doc.moveTo(50, doc.y + 2).lineTo(250, doc.y + 2).strokeColor("#C29D59").stroke();
+        const terms = [
+            "This offer is valid for thirty (30) days from the date of issue.",
+            "Admission is subject to verification of original academic documents and transcripts.",
+            "All applicable fees are payable as per the institution's prescribed payment schedule.",
+            "Unigate Consultancy serves as an authorized admission and education partner.",
+            "The institution reserves the right to withdraw this offer in case of misrepresentation.",
+        ];
 
-        // ─── Footer ───
-        const pageH = doc.page.height;
-        doc.rect(0, pageH - 40, 595, 1).fill("#C29D59");
-        doc.font("Helvetica").fontSize(7).fillColor("#94A3B8")
-            .text("This document is computer-generated and does not require a physical signature.", 50, pageH - 35, { align: "center", width: 495 })
-            .text(`Verify: ${verifyUrl}  |  Document ID: ${letterId}`, 50, pageH - 25, { align: "center", width: 495 });
+        terms.forEach((term, i) => {
+            doc.font("Helvetica").fontSize(8.5).fillColor(COLORS.slate700)
+                .text(`${i + 1}.  ${term}`, M + 10, y, { width: CW - 20, lineGap: 2 });
+            y = doc.y + 3;
+        });
+
+        // ════════════════════════════════════════════════════
+        // ─── SIGNATURE & QR CODE SECTION ───
+        // ════════════════════════════════════════════════════
+        y += 10;
+        doc.rect(M, y, CW, 0.5).fill(COLORS.slate200);
+        y += 14;
+
+        // Signature block (left side)
+        doc.font("Helvetica").fontSize(8.5).fillColor(COLORS.slate500)
+            .text("Authorized Signatory", M, y);
+        y = doc.y + 20;
+        // Signature line
+        doc.moveTo(M, y).lineTo(M + 180, y).lineWidth(0.8).strokeColor(COLORS.gold).stroke();
+        y += 6;
+        doc.font("Helvetica-Bold").fontSize(10).fillColor(COLORS.navy)
+            .text("Unigate Consultancy", M, y);
+        doc.font("Helvetica").fontSize(8).fillColor(COLORS.slate500)
+            .text("Admissions Division", M, doc.y + 2);
+
+        // QR Code block (right side)
+        const qrSize = 65;
+        const qrX = PW - M - qrSize - 10;
+        const qrY = y - 32;
+        // QR border
+        roundedRect(doc, qrX - 6, qrY - 6, qrSize + 12, qrSize + 24, 6);
+        doc.lineWidth(0.5).strokeColor(COLORS.slate200).stroke();
+        doc.image(qrBuffer, qrX, qrY, { width: qrSize });
+        doc.font("Helvetica").fontSize(6.5).fillColor(COLORS.slate400)
+            .text("Scan to verify", qrX - 6, qrY + qrSize + 4, { width: qrSize + 12, align: "center" });
+
+        // ════════════════════════════════════════════════════
+        // ─── PREMIUM FOOTER ───
+        // ════════════════════════════════════════════════════
+        const footerY = PH - 55;
+        doc.rect(25, footerY, PW - 50, 1).fill(COLORS.gold);
+        doc.rect(25, footerY + 1, PW - 50, 28).fill(COLORS.navy);
+
+        doc.font("Helvetica").fontSize(6.5).fillColor(COLORS.goldLight)
+            .text("This is a digitally generated document by Unigate Consultancy Management System. No physical signature is required.", M, footerY + 6, { align: "center", width: CW });
+        doc.font("Helvetica").fontSize(6).fillColor(COLORS.slate400)
+            .text(`Document ID: ${letterId}  •  Verification: ${verifyUrl}`, M, footerY + 17, { align: "center", width: CW });
 
         doc.end();
     });
@@ -166,7 +345,6 @@ function corsHeaders() {
 
 // ─── Handler: POST /api/pdf/offer-letter ───
 exports.handler = async (event) => {
-    // Handle CORS preflight
     if (event.httpMethod === "OPTIONS") {
         return { statusCode: 204, headers: corsHeaders(), body: "" };
     }
@@ -194,7 +372,7 @@ exports.handler = async (event) => {
             };
         }
 
-        const appUrl = process.env.APP_URL || "http://localhost:3000";
+        const appUrl = process.env.APP_URL || "https://unigate-final-v3.vercel.app";
         const { letterId } = await generateOfferLetterPDF({
             studentName: student_name,
             collegeName: college_name,

@@ -38,7 +38,7 @@ exports.handler = async (event) => {
             };
         }
 
-        const appUrl = process.env.APP_URL || "http://localhost:3000";
+        const appUrl = process.env.APP_URL || "https://unigate-final-v3.vercel.app";
         const { pdf, letterId } = await generateOfferLetterPDF({
             studentName: student_name,
             collegeName: college_name,
