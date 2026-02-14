@@ -110,6 +110,7 @@ export default function CollegesPage() {
         fontSize: "0.875rem",
         outline: "none",
         background: "#f8fafc",
+        color: "#0f172a",
     };
 
     if (loading) {

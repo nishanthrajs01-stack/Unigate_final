@@ -100,6 +100,7 @@ export default function ProfilePage() {
         fontSize: "0.875rem",
         outline: "none",
         background: "#f8fafc",
+        color: "#0f172a",
         transition: "border-color 0.2s",
     };
 

@@ -149,6 +149,7 @@ export default function ApplicationPage() {
         outline: "none",
         transition: "border-color 0.2s",
         background: "#f8fafc",
+        color: "#0f172a",
     };
 
     const labelStyle: React.CSSProperties = {
