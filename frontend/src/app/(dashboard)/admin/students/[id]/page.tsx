@@ -62,7 +62,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
         if (!application?.profile) return;
 
         try {
-            const res = await fetch(`${API_URL}/api/pdf/offer-letter/download`, {
+            const res = await fetch(`${API_URL}/api/pdf/offer-letter-download`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
