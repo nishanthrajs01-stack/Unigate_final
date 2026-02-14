@@ -1,0 +1,19 @@
+{
+    "name": "ucms-backend",
+    "version": "1.0.0",
+    "description": "UCMS Backend — Netlify Functions",
+    "private": true,
+    "scripts": {
+        "dev": "netlify dev",
+        "build": "echo 'No build step needed for Netlify Functions'"
+    },
+    "dependencies": {
+        "nodemailer": "^6.9.16",
+        "pdfkit": "^0.15.2",
+        "qrcode": "^1.5.4",
+        "uuid": "^11.1.0"
+    },
+    "devDependencies": {
+        "@netlify/functions": "^3.0.0"
+    }
+}
